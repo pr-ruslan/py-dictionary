@@ -1,59 +1,62 @@
 from typing import Any
-from dataclasses import dataclass
 
 
-@dataclass
 class Node:
-    key: Any
-    hash: int
-    value: Any
+    def __init__(self, key: Any, value: Any):
+        self.key = key
+        self.value = value
+        self.hash = hash(key)
 
 
 class Dictionary:
-    def __init__(self, load_factor: float = 0.66) -> None:
+    def __init__(self, load_factor: float = 2/3) -> None:
         self.hash_table = [None] * 8
-        self.nods_count = 0
         self.empty_cells = [cell for cell in range(8)]
         self.load_factor = load_factor
 
     def __setitem__(self, key, value) -> None:
+        self._resize()
         new_node = Node(
             key=key,
-            hash=hash(key),
             value=value
         )
-        if self.need_resize():
-            self.resize()
-        if self.hash_table[self.get_cell_number(key)] is None:
-            self.hash_table[self.get_cell_number(key)] = new_node
-            self.empty_cells.remove(self.get_cell_number(key))
+        cell = self.get_slot(new_node.key)
+
+        if self.hash_table[cell] is None or self.hash_table[cell].key == new_node.key:
+            self.hash_table[cell] = new_node
         else:
-            self.hash_table[self.empty_cells[0]] = new_node
-            self.empty_cells = self.empty_cells[1:]
+            for cell in range(len(self.hash_table)):
+                if self.hash_table[cell] is None:
+                    self.hash_table[cell] = new_node
 
     def __getitem__(self, key) -> Any:
-        if self.hash_table[self.get_cell_number(key)].key == key:
-            return self.hash_table[self.get_cell_number(key)].value
+        if self.hash_table[self.get_slot(key)] is None:
+            raise KeyError
+        if self.hash_table[self.get_slot(key)].key == key:
+            return self.hash_table[self.get_slot(key)].value
         else:
             for cell in self.hash_table:
-                if not isinstance(cell, Node):
+                if not isinstance(cell, Node) or cell.key != key:
                     continue
-                if key == cell.key:
+                elif cell.key == key:
                     return cell.value
+            # raise KeyError
 
-    def need_resize(self) -> bool:
-        return self.nods_count + 1 > len(self.hash_table) * self.load_factor
+    def _resize(self) -> None:
+        if self.__len__() > len(self.hash_table) * self.load_factor:
+            old_hash_table = self.hash_table.copy()
+            self.hash_table = [None] * (len(self.hash_table) * 2)
+            for item in old_hash_table:
+                if item:
+                    self.__setitem__(item.key, item.value)
 
-    def resize(self) -> None:
-        new_hash_table = [None] * (len(self.hash_table) * 2)
-        for item in self.hash_table:
-            if item is not None:
-                new_hash_table[self.get_cell_number(item.hash)] = item
-        self.hash_table = new_hash_table
+    def get_slot(self, key) -> int:
+        slot_number = hash(key) % len(self.hash_table)
+        return slot_number
 
     def __len__(self) -> int:
-        return self.nods_count
-
-    def get_cell_number(self, key) -> int:
-        return hash(key) % len(self.hash_table)
-
+        nods_count = 0
+        for slot in self.hash_table:
+            if slot is not None:
+                nods_count += 1
+        return nods_count
